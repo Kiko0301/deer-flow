@@ -9,8 +9,12 @@ source. Both shapes use the existing referenceability gate and per-result dedupl
 URL path without case sensitivity. Free-text URL and sandbox-path extraction
 strips common trailing ASCII/CJK prose punctuation while preserving ASCII
 `()`, `[]`, `{}` and CJK closers paired with openers inside the detected
-reference (including literal glob directory names). Structured references remain
-literal. See
+reference (including literal glob directory names). Sandbox paths wrapped in
+matching single/double quotes or inline backticks retain spaces and literal
+punctuation. Consume quoted spans once, in source order, and exclude their
+embedded references from later scans even when a span is rejected for size or
+missing its same-line closing delimiter. Bare paths keep whitespace boundaries;
+structured references remain literal. See
 [tool artifact middleware](../agents/middlewares/TOOL_ARTIFACTS.md).
 
 Deferred-tool regex discovery uses `regex.VERSION0` with a shared 100 ms

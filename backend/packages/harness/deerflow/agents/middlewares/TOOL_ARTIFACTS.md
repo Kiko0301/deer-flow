@@ -23,6 +23,14 @@ with openers inside the detected reference are preserved, so a numbered glob
 result such as `/mnt/user-data/workspace/项目（归档）` retains its complete name
 through capture, checkpoint persistence and subsequent handle resolution.
 
+Sandbox paths immediately wrapped in matching single/double quotes or inline
+backticks are captured literally, including spaces and trailing punctuation.
+Quoted spans cannot create additional handles for embedded path/URL text;
+unclosed or multiline spans are skipped at their first line boundary. Bare
+paths retain the conservative whitespace boundary. This applies to newly
+captured results; processed-result identities and existing handles are not
+migrated.
+
 ## Durable projection
 
 Artifact handles are projected with working notes and summary history in the hidden HumanMessage data block when `tool_artifacts.enabled` and `inject_model_context` are enabled. Every model-visible artifact label (display name, type, tool name, MIME type) is redacted with the configured PII policy before HTML escaping. Generated handles remain usable and internal `real_ref` values remain unchanged for resolution. Values remain untrusted data. Artifact capture precedes compaction; task continuity and PII redaction retain independent configuration. `inject_tool_artifacts` participates in the middleware release policy fingerprint.

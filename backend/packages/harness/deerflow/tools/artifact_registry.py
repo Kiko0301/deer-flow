@@ -27,8 +27,10 @@ _HANDLE_PREFIX = "art_"
 _HANDLE_LENGTH = 8
 
 # Virtual sandbox path prefix (used by local stdio MCP servers whose files live
-# inside the mounted user-data tree).
-_SANDBOX_PATH_PATTERN = re.compile(r"/mnt/user-data/\S+")
+# inside the mounted user-data tree). A matching quote or inline backtick makes
+# spaces and punctuation part of the filename. Consume an unclosed quoted span
+# through its line boundary too, so it cannot fall back to a fabricated prefix.
+_SANDBOX_PATH_PATTERN = re.compile(r"(?P<quote>[\"'`])(?P<quoted>/mnt/user-data/[^\r\n]*?)(?:(?P<close>(?P=quote))|(?=[\r\n]|\Z))|(?P<bare>/mnt/user-data/\S+)")
 
 # Scan complete URLs before checking the path, so extensions in query strings
 # cannot truncate a reference or turn a non-file URL into a file artifact.
@@ -152,8 +154,18 @@ def _detect_refs_in_text(text: str) -> list[dict[str, str]]:
     """Conservatively detect file paths and remote file URLs in free text."""
     refs: list[dict[str, str]] = []
     seen: set[str] = set()
+    quoted_spans: list[tuple[int, int]] = []
     for match in _SANDBOX_PATH_PATTERN.finditer(text):
-        raw = _strip_ref_trailing_noise(match.group(0))
+        if match.group("quote"):
+            # Keep the entire span opaque even when it is unclosed or too large
+            # to register: embedded path/URL-looking filename text is not a
+            # second reference. Delimited filenames retain literal punctuation.
+            quoted_spans.append(match.span())
+            if match.group("close") is None:
+                continue
+            raw = match.group("quoted")
+        else:
+            raw = _strip_ref_trailing_noise(match.group("bare"))
         if raw in seen or not _is_referenceable_url(raw):
             continue
         seen.add(raw)
@@ -164,7 +176,12 @@ def _detect_refs_in_text(text: str) -> list[dict[str, str]]:
                 "display": raw.split("/")[-1],
             }
         )
+    quoted_index = 0
     for match in _REMOTE_URL_PATTERN.finditer(text):
+        while quoted_index < len(quoted_spans) and quoted_spans[quoted_index][1] <= match.start():
+            quoted_index += 1
+        if quoted_index < len(quoted_spans) and quoted_spans[quoted_index][0] <= match.start():
+            continue
         raw = _strip_ref_trailing_noise(match.group(0))
         if raw in seen or not _is_referenceable_url(raw):
             continue
